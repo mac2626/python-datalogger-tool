@@ -1410,13 +1410,8 @@ class DataloggerGUI:
                                         json_file = os.path.join(dir_path, f"{new_base}_{utc_time}.json")
                                     logging.getLogger(__name__).info(f"Step 2: Renamed files based on UTC time for {json_file}")
 
-                                # Move JSON to json-files folder
-                                json_folder = os.path.join(output_dir, "json-files")
-                                os.makedirs(json_folder, exist_ok=True)
-
                                 
                                 new_sbem_path = os.path.join(sbem_folder, sbem_filename)
-                                new_json_path = os.path.join(json_folder, os.path.basename(json_file))
                                 
                                 try:
                                     if os.path.exists(new_sbem_path):
@@ -1428,23 +1423,30 @@ class DataloggerGUI:
                                 except Exception as e:
                                     self._log_queue.put(('log', f"Warning: Could not move SBEM file: {str(e)}"))
 
-                                try:
-                                    if os.path.exists(new_json_path):
-                                        self._log_queue.put(('log', f"JSON already archived: {os.path.basename(json_file)}"))
-                                    else:
-                                        os.rename(json_file, new_json_path)
-                                        json_file = new_json_path  # update reference for any further use
-                                        self._log_queue.put(('log', f"Moved JSON to: {new_json_path}"))
-                                except Exception as e:
-                                    self._log_queue.put(('log', f"Warning: Could not move JSON file: {str(e)}"))
+                                # Move JSON to json-files folder only in Advanced UI mode
+                                if self.advanced_ui_var.get():
+                                    json_folder = os.path.join(output_dir, "json-files")
+                                    os.makedirs(json_folder, exist_ok=True)
+                                    new_json_path = os.path.join(json_folder, os.path.basename(json_file))
+                                    try:
+                                        if os.path.exists(new_json_path):
+                                            self._log_queue.put(('log', f"JSON already archived: {os.path.basename(json_file)}"))
+                                        else:
+                                            os.rename(json_file, new_json_path)
+                                            json_file = new_json_path  # update reference for any further use
+                                            self._log_queue.put(('log', f"Moved JSON to: {new_json_path}"))
+                                    except Exception as e:
+                                        self._log_queue.put(('log', f"Warning: Could not move JSON file: {str(e)}"))
 
                     # Step 3: Convert JSON to CSV
                     self._log_queue.put(('log', "\n--- Converting JSON to CSV ---"))
                     self._log_queue.put(('status', "Converting JSON to CSV..."))
                     self.progress_frame.grid()  # Show progress bars for conversion steps
+                    advanced_ui = self.advanced_ui_var.get()
                     json_folder = os.path.join(output_dir, "json-files")
-                    csv_folder = os.path.join(output_dir, "csv-files")
-                    os.makedirs(csv_folder, exist_ok=True)
+                    csv_folder = os.path.join(output_dir, "csv-files") if advanced_ui else output_dir
+                    if advanced_ui:
+                        os.makedirs(csv_folder, exist_ok=True)
 
                     json_files = []
                     scan_dirs = [json_folder] if os.path.exists(json_folder) else [output_dir]
@@ -1479,6 +1481,12 @@ class DataloggerGUI:
                                 await convert_json_to_csv(input_file=json_file, output_file=csv_file, progress_callback=self.update_csv_progress)
                                 logging.getLogger(__name__).info(f"Step 3: Created {csv_file}")
                                 self._log_queue.put(('log', f"\nCreated: {csv_file}"))
+                                if not advanced_ui:
+                                    try:
+                                        os.remove(json_file)
+                                        logging.getLogger(__name__).info(f"Step 3: Removed intermediate JSON: {json_file}")
+                                    except Exception as e:
+                                        logging.getLogger(__name__).warning(f"Step 3: Could not remove intermediate JSON {json_file}: {str(e)}")
                             except Exception as e:
                                 logging.getLogger(__name__).error(f"Step 3: CSV conversion failed for {json_file}: {str(e)}")
                                 self._log_queue.put(('log', f"Warning: CSV conversion failed for {json_file}: {str(e)}"))
@@ -1492,7 +1500,7 @@ class DataloggerGUI:
 
                     csv_files = []
                     csv_files_total = 0
-                    csv_folder = os.path.join(output_dir, "csv-files")
+                    csv_folder = os.path.join(output_dir, "csv-files") if advanced_ui else output_dir
                     scan_root = csv_folder if os.path.exists(csv_folder) else output_dir
                     for root_dir, dirs, files in os.walk(scan_root):
                         if any(x in root_dir for x in ['venv', 'site-packages']):
@@ -1577,6 +1585,14 @@ class DataloggerGUI:
                                             recording_start=utc_time_dt)
                                 logging.getLogger(__name__).info(f"Step 4: Created {edf_file}")
                                 self._log_queue.put(('log', f"\nCreated: {edf_file}"))
+                                # In simple mode, delete the intermediate CSV now that EDF is created
+                                if not advanced_ui:
+                                    try:
+                                        os.remove(csv_file)
+                                        logging.getLogger(__name__).info(f"Step 4: Removed intermediate CSV: {csv_file}")
+                                    except Exception as e:
+                                        logging.getLogger(__name__).warning(f"Step 4: Could not remove intermediate CSV {csv_file}: {str(e)}")
+
                             except Exception as e:
                                 logging.getLogger(__name__).error(f"Step 4: EDF conversion failed for {csv_file}: {str(e)}")
                                 self._log_queue.put(('log', f"Warning: EDF conversion failed for {csv_file}: {str(e)}"))
