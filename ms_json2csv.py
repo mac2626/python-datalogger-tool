@@ -135,7 +135,7 @@ def detect_missing_chunks(entries, stream_name, tolerance=1.5):
     return missing_chunks
 
 
-def process_hr_stream(stream_name, entries, output_file, relative_time, utc_time_str):
+async def process_hr_stream(stream_name, entries, output_file, relative_time, utc_time_str):
     """Process heart rate (MeasHR) streams with RR intervals."""
     
     all_data = []
@@ -267,20 +267,31 @@ async def process_imu_stream(stream_name, entries, output_file, relative_time, u
         #print(f"Writing {len(data)} samples to {stream_output}")
         log.debug(f"Writing {len(data)} samples to {stream_output}")
         async with aiofiles.open(stream_output, "w", newline="") as csvfile:
-            writer = csv.writer(csvfile)
-            
             first_val = data[0][1]
             if isinstance(first_val, list) and len(first_val) == 3:
                 header = ["Timestamp_ms", "X", "Y", "Z", "RelativeTime", relative_time, "UTC", utc_time_str]
             else:
                 header = ["Timestamp_ms", "Value", "RelativeTime", relative_time, "UTC", utc_time_str]
-            await writer.writerow(header)
-            
-            for ts, val in data:
+            # Write header via buffer 
+            buf = io.StringIO()
+            csv.writer(buf).writerow(header)
+            await csvfile.write(buf.getvalue())
+            # Write data rows in buffered chunks
+            chunk_size = 1000
+            buffer = io.StringIO()
+            writer = csv.writer(buffer)
+            for i, (ts, val) in enumerate(data):
                 if isinstance(val, list):
-                    await writer.writerow([ts] + [f"{v:.6f}" for v in val])
+                    writer.writerow([ts] + [f"{v:.6f}" for v in val])
                 else:
-                    await writer.writerow([ts, f"{val:.6f}"])
+                    writer.writerow([ts, f"{val:.6f}"])
+                if (i + 1) % chunk_size == 0:
+                    await csvfile.write(buffer.getvalue())
+                    buffer = io.StringIO()
+                    writer = csv.writer(buffer)
+            remaining = buffer.getvalue()
+            if remaining:
+                await csvfile.write(remaining)
         
         #print(f"Saved {len(data)} samples to {stream_output}")
         log.debug(f"Saved {len(data)} samples to {stream_output}")
