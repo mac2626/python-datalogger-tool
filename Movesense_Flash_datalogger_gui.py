@@ -42,6 +42,7 @@ _log_path = os.path.join(_base_dir, f"debug_{_start_ts}.log")
 logging.root.setLevel(logging.DEBUG)
 #get_local_bt_info()
 
+SBEM2JSON_EXECUTABLE = "sbem2json.exe" if os.name == "nt" else "sbem2json"  # Ensure this is in your PATH or have in current directory
 
 class AdvancedConfigDialog:
     """Dialog for advanced configuration options"""
@@ -1373,7 +1374,7 @@ class DataloggerGUI:
                             else:
                                 application_path = os.path.dirname(os.path.abspath(__file__))
 
-                            sbem2json_exe = os.path.join(application_path, "sbem2json.exe")
+                            sbem2json_exe = os.path.join(application_path, SBEM2JSON_EXECUTABLE)
                             converter_cmd = f'"{sbem2json_exe}" --sbem2json "{sbem_file}" --output "{json_file}"'
                             
                             conv_process = await asyncio.create_subprocess_shell(
