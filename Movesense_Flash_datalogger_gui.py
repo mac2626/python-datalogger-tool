@@ -46,7 +46,7 @@ SBEM2JSON_EXECUTABLE = "sbem2json.exe" if os.name == "nt" else "sbem2json"  # En
 
 class AdvancedConfigDialog:
     """Dialog for advanced configuration options"""
-    MAX_SELECTIONS = 3  
+    MAX_SELECTIONS = 7  
 
     def __init__(self, parent, current_config):
         self.result = None
