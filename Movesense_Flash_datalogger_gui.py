@@ -646,6 +646,7 @@ class DataloggerGUI:
                 self.device_connected = False
                 self.logging_active = False
                 self.logging_serial = None
+                self.logging_configured = False
                 self.update_button_states()
                 self.log_output(f"Serial number changed. Please click Connect again.\n")
         if hasattr(self, 'battery_label'):
