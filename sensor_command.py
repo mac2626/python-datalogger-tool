@@ -623,6 +623,7 @@ class SensorCommand:
                 os.makedirs(dirname, exist_ok=True)
 
             last_offset = 0
+            missing_packet_detected = False
             with open(filename, 'wb') as f_log:
                 while True:
                     try:
@@ -638,11 +639,21 @@ class SensorCommand:
                             if len(data_payload) >= 4:
                                 dv = DataView(data_payload)
                                 offset = dv.get_uint_32(0)
-                                last_offset = offset
                                 bytes_to_write = data_payload[4:]
+                                packet_size = len(bytes_to_write)
+
+                                expected_offset = last_offset
+
+                                if offset != expected_offset:
+                                    missing_packet_detected = True
+                                    self.logger.error( f"Packet loss detected Expected offset {expected_offset}, "
+                                                        f"but received {offset}. Missing {offset - expected_offset} bytes."
+                                                    )
+                                last_offset = offset + packet_size
+
                                 if progress_callback:
                                     progress_callback(offset + len(bytes_to_write))
-                                
+
                                 if len(bytes_to_write) > 0:
                                     f_log.seek(offset)
                                     f_log.write(bytes_to_write)
@@ -659,6 +670,15 @@ class SensorCommand:
                     except asyncio.TimeoutError:
                         self.logger.warning("Data fetch timeout")
                         break
+
+            if missing_packet_detected: 
+                return {
+                    'success': False,
+                    'filename': filename,
+                    'size': last_offset,
+                    'log_id': log_id,
+                    'error': 'Incomplete log data: one or more packets were missing during transfer'
+                }
             
             return {
                 'success': True,
