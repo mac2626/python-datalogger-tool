@@ -350,6 +350,7 @@ class SensorCommand:
     async def get_battery_level(self) -> Dict[str, Any]:
         response = await self.get_resource("/System/Energy/Level")
         logging.info(f"Battery level result: {response}")
+        print(f"Battery level result: {response}")
         
         retval = {}
         if response.get('success'):
@@ -357,10 +358,13 @@ class SensorCommand:
             if status_code == 200:  # HTTP OK
                 # Parse HELLO response data
                 command_data = response.get('data', b'')
+                print(f"Battery level command data: {command_data}")
                 
                 if len(command_data) >= 1:  # At least protocol version + null terminators
                     dv = DataView(command_data)
+                    print(f"Battery level data view: {dv.array}")
                     batt_level = dv.get_uint_8(0)
+                    print(f"Battery level parsed: {batt_level}")
                     
                     retval.update({
                         'battery_level': batt_level})
@@ -738,7 +742,10 @@ class SensorCommand:
         """Get resource data using GET command."""
         path_bytes = resource_path.encode('utf-8') + b'\x00'  # Null-terminated
         command = bytearray([GSP_CMD_GET, 105]) + path_bytes
+        print(f"Sending GET command for resource_path: {resource_path}, command: {command}")
         response = await self.send_command(command)
+
+        print(f"GET command response: {response}, resource_path: {resource_path}, raw_data: {response.get('raw_data')}")
         
         if response.get('response_code') == GSP_RESP_COMMAND_RESPONSE:
             status_code = response.get('status_code', 0)
