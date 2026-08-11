@@ -77,9 +77,9 @@ class AdvancedConfigDialog:
         IMU_rates = [13, 26, 52, 104, 208, 416, 833]
         self.measurements = {
             "/Meas/Acc": IMU_rates,
-            "/Algo/ECGRR": [],
             "/Meas/Gyro": IMU_rates,
             "/Meas/Ecg": [125, 128, 200, 250, 256, 500, 512],
+            "/Algo/ECGRR": [],
             "/Meas/HR": [],
             "/Meas/IMU6" : IMU_rates,
             "/Meas/IMU6m" : IMU_rates,
