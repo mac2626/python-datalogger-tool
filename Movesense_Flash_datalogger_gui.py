@@ -516,7 +516,7 @@ class DataloggerGUI:
         self.battery_label.grid(row=0, column=1, padx=(10, 5), sticky=tk.W)
 
         # Erase button on the right
-        self.erase_button = ttk.Button(bottom_frame, text="Erase Memory", command=self.erase_memory, width=20)
+        self.erase_button = ttk.Button(bottom_frame, text="Erase Memory", command=self.erase_memory, width=20, state='disabled')
         self.erase_button.grid(row=0, column=3, padx=5, sticky=tk.E)
 
         # Force checkbox 
@@ -567,6 +567,7 @@ class DataloggerGUI:
         """Update button states based on connection and logging status"""
         if not self.device_connected:
             # Not connected - disable everything except Connect
+            self.connect_button.config(state='normal')
             self.start_button.config(state='disabled')
             self.stop_button.config(state='disabled')
             self.fetch_button.config(state='disabled')
