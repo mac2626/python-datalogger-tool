@@ -155,7 +155,6 @@ async def csv_to_edf_plus(csv_filename, edf_filename=None, sampling_freq=None, u
 
     # Create EDF+ file
     print(f"\nCreating EDF+ file: {edf_filename}")
-    #print(f"Recording start time: {recording_start.strftime('%Y-%m-%d %H:%M:%S')}")
     if recording_start:
         print(f"Recording start time: {recording_start.strftime('%Y-%m-%d %H:%M:%S')}")
     else:
@@ -216,7 +215,6 @@ def main():
         print(f"Error: File '{csv_filename}' not found!")
         return
 
-    #csv_to_edf_plus(csv_filename, edf_filename, sampling_freq, unit, scale_factor)
     asyncio.run(csv_to_edf_plus(csv_filename, edf_filename, sampling_freq, unit, scale_factor))
 
 if __name__ == "__main__":

@@ -1,10 +1,8 @@
 import asyncio
 import logging
 from logging import FileHandler
-import multiprocessing
 import tkinter as tk
 from tkinter import ttk, scrolledtext, filedialog, messagebox
-import aiofiles
 from async_tkinter_loop import async_handler, async_mainloop
 from csv2edf import csv_to_edf_plus
 from ms_json2csv import convert_json_to_csv
@@ -22,8 +20,6 @@ import webbrowser
 from contextlib import redirect_stdout
 import datalogger_tool as tool  
 import queue
-import threading
-import time
 
 import tkinter as tk
 from tkinter import ttk, scrolledtext
@@ -485,7 +481,6 @@ class DataloggerGUI:
         ttk.Label(fetch_frame, text="Path:").grid(row=0, column=0, padx=(0, 5))
         self.output_entry = ttk.Entry(fetch_frame, width=150) 
         self.output_entry.grid(row=0, column=1, sticky="ew")  
-        #ttk.Button(fetch_frame, text="Browse...", command=self.browse_output).grid(row=0, column=2, padx=(5, 0))
         self.browse_button = ttk.Button(fetch_frame, text="Browse...", command=self.browse_output)
         self.browse_button.grid(row=0, column=2, padx=(5, 0))
         
@@ -498,7 +493,6 @@ class DataloggerGUI:
         self.output_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Clear output button
-        #ttk.Button(output_frame, text="Clear Output", command=self.clear_output).grid(row=1, column=0, pady=(5, 0))
         self.clear_button = ttk.Button(output_frame, text="Clear Output", command=self.clear_output)
         self.clear_button.grid(row=1, column=0, pady=(5, 0), sticky=tk.W)
 
@@ -513,7 +507,6 @@ class DataloggerGUI:
         bottom_frame.columnconfigure(0, weight=1)
         
         # About button on the left
-        #ttk.Button(bottom_frame, text="About", command=self.show_about, width=10).grid(row=0, column=0, sticky=tk.W)
         self.about_button = ttk.Button(bottom_frame, text="About", command=self.show_about, width=10)
         self.about_button.grid(row=0, column=0, sticky=tk.W)
 
@@ -561,7 +554,6 @@ class DataloggerGUI:
                         self.log_output(args)
                     elif msg_type == 'status':
                         self.status_var.set(args)
-                #print(f"queue size after processing: {self._log_queue.qsize()}, maxloop: {maxloop}\n")  # Debug print
         except queue.Empty:
             pass
         except Exception as e:
@@ -584,7 +576,6 @@ class DataloggerGUI:
                 self.erase_button.config(state='disabled')
             if hasattr(self, 'configure_button'):
                 self.configure_button.config(state='disabled')
-            #self.connection_status_label.config(text="Not connected - click Connect first", foreground="red")
         elif self.logging_active:
             # Connected and logging - only Stop should be enabled
             self.connect_button.config(state='normal')
@@ -599,7 +590,6 @@ class DataloggerGUI:
                 self.erase_button.config(state='disabled')
             if hasattr(self, 'configure_button'):
                 self.configure_button.config(state='disabled')
-            #self.connection_status_label.config(text="Device connected - Logging active", foreground="green")
         else:
             # Connected but not logging - Start and Load Data enabled
             self.connect_button.config(state='normal')
@@ -615,7 +605,6 @@ class DataloggerGUI:
                 self.erase_button.config(state='normal')
             if hasattr(self, 'configure_button'):
                 self.configure_button.config(state='normal')
-            #self.connection_status_label.config(text="Device connected - Ready", foreground="green")
 
     def disable_all_buttons(self):
         """Disable all action buttons immediately"""
@@ -925,14 +914,12 @@ class DataloggerGUI:
             if dlstate == 3:
                 self.logging_active = True
                 self.logging_serial = serial
-                #self.fetch_button.config(state='disabled')
                 self.root.after(0, self.log_output, 
                     f"Device is currently logging. Use 'Stop Logging' to stop.\n")
                 self.root.after(2000, self.logging_data)
             else:
                 self.logging_active = False
                 self.logging_serial = None
-                #self.fetch_button.config(state='normal')
 
             with redirect_stdout(output):
                 print(f"Device {serial} status:")
@@ -946,7 +933,6 @@ class DataloggerGUI:
 
             # Update GUI with captured output
             self.root.after(0, self.log_output, output.getvalue())
-            #self.root.after(0, self.status_var.set, "Status check completed.")
 
             if status.get('battery_level') is not None:
                 level = status.get('battery_level', '?')
@@ -1333,8 +1319,6 @@ class DataloggerGUI:
                 self.root.after(0, self.status_var.set, "Error occurred during data fetch")
                 self.fetching_active = False
                 return
-            
-            #self.root.after(0, self.log_output, "\nLogging completed successfully.")
 
             # Steps 2-4: Run all file conversions
             async def file_format_conversion():
@@ -1391,7 +1375,6 @@ class DataloggerGUI:
                                     if "invalid map<K, T>" not in line and "SmlDescriptor::parseModifier:" not in line:
                                         self._log_queue.put(('log', line))
                             
-                            #await asyncio.sleep(0.3)
                             if conv_process.returncode != 0:
                                 logging.getLogger(__name__).warning(f"Step 2: SBEM conversion failed for {sbem_filename}, returncode={conv_process.returncode}")
                                 self._log_queue.put(('log', f"Warning: Conversion failed for {sbem_filename}\n"))
@@ -1611,7 +1594,6 @@ class DataloggerGUI:
                     self._log_queue.put(('log', f"\nError: {str(e)}"))
                     self._log_queue.put(('status', "Error occurred"))
 
-            # threading.Thread(target=conversion_worker, daemon=True).start()
             # logging.getLogger(__name__).info("conversion_worker thread launched")
             await file_format_conversion()
         

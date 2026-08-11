@@ -21,7 +21,6 @@ async def convert_json_to_csv(input_file, output_file, progress_callback = None)
     if progress_callback:
         progress_callback(1, 5, "Parsing JSON")  # Initial progress callback for parsing step
     async with aiofiles.open(input_file, 'r') as f:
-        #print("Parsing JSON...")
         log.debug("Parsing JSON...")
         strcontent = await f.read()
         content = json.loads(strcontent)
@@ -30,7 +29,6 @@ async def convert_json_to_csv(input_file, output_file, progress_callback = None)
         progress_callback(2, 5, "Parsing JSON")  # Initial progress callback for parsing step
 
     samples = content.get("Samples", [])
-    #print(f"Total sample entries: {len(samples)}")
     log.debug(f"Total sample entries: {len(samples)}")
 
     # Group samples by stream name
@@ -41,7 +39,6 @@ async def convert_json_to_csv(input_file, output_file, progress_callback = None)
             continue
         sample_streams.setdefault(sample_type, []).append(sample[sample_type])
 
-    #print(f"Streams found: {list(sample_streams.keys())}")
     log.debug(f"Streams found: {list(sample_streams.keys())}")
 
     # Extract time reference (if available)
@@ -59,7 +56,6 @@ async def convert_json_to_csv(input_file, output_file, progress_callback = None)
 
     # Process each stream
     for stream_name, entries in sample_streams.items():
-        #print(f"\n{'='*60}\nProcessing stream: {stream_name}")
         log.debug(f"Processing stream: {stream_name}")
         
         # For IMU6/IMU9, we need to split into separate CSV files per sensor type
@@ -97,12 +93,10 @@ def detect_missing_chunks(entries, stream_name, tolerance=1.5):
             break
 
     if len(timestamps) < 2:
-        #print(f"  Warning: Cannot determine chunk interval for {stream_name}")
         log.warning(f"Cannot determine chunk interval for {stream_name}")
         return [], 0
     
     expected_chunk_dt = timestamps[1] - timestamps[0]
-    #print(f"  Expected chunk interval for {stream_name}: {expected_chunk_dt} ms")
     log.debug(f"Expected chunk interval for {stream_name}: {expected_chunk_dt} ms")
 
     missing_chunks = []
@@ -120,9 +114,6 @@ def detect_missing_chunks(entries, stream_name, tolerance=1.5):
         # If gap is significantly larger than expected, we have missing chunks
         if gap > expected_chunk_dt * tolerance:
             num_missing = int(round((gap - expected_chunk_dt) / expected_chunk_dt))
-            #print(f"  Missing chunk(s) detected between index {i} and {i+1}")
-            #print(f"    Current ts: {current_ts}, Next ts: {next_ts}, Gap: {gap:.1f}ms")
-            #print(f"    Expected interval: {expected_chunk_dt:.1f}ms, Missing chunks: {num_missing}")
             log.debug(f"Missing chunk(s) detected between index {i} and {i+1}")
             log.debug(f"  Current ts: {current_ts}, Next ts: {next_ts}, Gap: {gap:.1f}ms")
             log.debug(f"  Expected interval: {expected_chunk_dt:.1f}ms, Missing chunks: {num_missing}")
@@ -155,14 +146,12 @@ async def process_hr_stream(stream_name, entries, output_file, relative_time, ut
             cumulative_time += rr_ms
     
     if not all_data:
-        #print(f"No valid samples found for {stream_name}, skipping.")
         log.warning(f"No valid samples found for {stream_name}, skipping.")
         return
     
     base, _ = os.path.splitext(output_file)
     stream_output = f"{base}_{stream_name}.csv"
     
-    #print(f"Writing {len(all_data)} samples to {stream_output}")
     log.debug(f"Writing {len(all_data)} samples to {stream_output}")
     with open(stream_output, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
@@ -177,14 +166,12 @@ async def process_hr_stream(stream_name, entries, output_file, relative_time, ut
                 sample["rr_interval_ms"]
             ])
     
-    #print(f"Saved {len(all_data)} samples to {stream_output}")
     log.debug(f"Saved {len(all_data)} samples to {stream_output}")
 
 async def process_imu_stream(stream_name, entries, output_file, relative_time, utc_time_str):
     """Process IMU6/IMU9 streams which contain multiple sensor arrays."""
 
     if len(entries) < 2:
-        #print(f"Warning: Not enough entries in {stream_name} to estimate sampling interval.")
         log.warning(f"Not enough entries in {stream_name} to estimate sampling interval.")
         return
 
@@ -198,12 +185,10 @@ async def process_imu_stream(stream_name, entries, output_file, relative_time, u
             break
 
     if first_ts is None or second_ts is None or second_ts <= first_ts:
-        #print(f"Warning: Cannot determine sample interval for {stream_name}")
         log.warning(f"Cannot determine sample interval for {stream_name}")
         return
 
     expected_chunk_dt = second_ts - first_ts
-    #print(f"  Estimated chunk-to-chunk interval for {stream_name}: {expected_chunk_dt:.3f} ms")
     log.debug(f"Estimated chunk-to-chunk interval for {stream_name}: {expected_chunk_dt:.3f} ms")
 
     # Try to estimate per-sample dt assuming similar sample counts in chunks
@@ -216,7 +201,6 @@ async def process_imu_stream(stream_name, entries, output_file, relative_time, u
 
     dt = expected_chunk_dt / samples_per_chunk
     freq_hz = 1000.0 / dt
-    #print(f"  Estimated sample interval: {dt:.4f} ms  ->  {freq_hz:.2f} Hz")
     log.debug(f"Estimated sample interval: {dt:.4f} ms  ->  {freq_hz:.2f} Hz, row 210")
     
     # Collect data by sensor type (Acc, Gyro, Magn)
@@ -226,7 +210,6 @@ async def process_imu_stream(stream_name, entries, output_file, relative_time, u
         timestamp = entry.get("Timestamp") or entry.get("timestamp")
         
         if timestamp is None:
-            #print(f"Warning: chunk {chunk_idx} missing Timestamp, skipping")
             log.warning(f"Warning: chunk {chunk_idx} missing Timestamp, skipping")
             continue
         
@@ -264,7 +247,6 @@ async def process_imu_stream(stream_name, entries, output_file, relative_time, u
         data.sort(key=lambda x: x[0])
         stream_output = f"{base}_{stream_name}_{sensor_type}.csv"
         
-        #print(f"Writing {len(data)} samples to {stream_output}")
         log.debug(f"Writing {len(data)} samples to {stream_output}")
         async with aiofiles.open(stream_output, "w", newline="") as csvfile:
             first_val = data[0][1]
@@ -293,7 +275,6 @@ async def process_imu_stream(stream_name, entries, output_file, relative_time, u
             if remaining:
                 await csvfile.write(remaining)
         
-        #print(f"Saved {len(data)} samples to {stream_output}")
         log.debug(f"Saved {len(data)} samples to {stream_output}")
 
 async def process_regular_stream(stream_name, entries, output_file, relative_time, utc_time_str, progress_callback=None):
@@ -319,14 +300,12 @@ async def process_regular_stream(stream_name, entries, output_file, relative_tim
                     break
 
         if timestamp is None:
-            #print(f"Chunk {chunk_idx} missing timestamp, skipping.")
             log.warning(f"Chunk {chunk_idx} missing timestamp, skipping.")
             continue
 
         # --- Identify data field ---
         data_keys = [k for k in entry.keys() if k.lower() != "timestamp"]
         if not data_keys:
-            #print(f"No data field in chunk {chunk_idx}.")
             log.warning(f"No data field in chunk {chunk_idx}.")
             continue
 
@@ -351,7 +330,6 @@ async def process_regular_stream(stream_name, entries, output_file, relative_tim
             else:
                 values = data_array
         else:
-            #print(f" Unsupported data format in chunk {chunk_idx}, skipping.")
             log.warning(f" Unsupported data format in chunk {chunk_idx}, skipping.")
             continue
 
@@ -366,7 +344,6 @@ async def process_regular_stream(stream_name, entries, output_file, relative_tim
             log.debug(f"[chunk {chunk_idx}] next_ts={next_ts} (from chunk {chunk_idx + 1})")
             if next_ts and next_ts > timestamp:
                 prev_dt = (next_ts - timestamp) / n
-                #print(f" Estimated sample interval: {prev_dt:.3f} ms ({1000/prev_dt:.2f} Hz)")
                 #log.debug(f" Estimated sample interval: {prev_dt:.3f} ms ({1000/prev_dt:.2f} Hz, row 349)")
                 log.debug(f"[chunk {chunk_idx}] dt estimated: ({next_ts} - {timestamp}) / {n} = {prev_dt:.3f} ms ({1000/prev_dt:.2f} Hz)")
             else:
@@ -380,22 +357,12 @@ async def process_regular_stream(stream_name, entries, output_file, relative_tim
             pass
             
         # --- Append all samples with estimated timestamps ---
-        # log.debug(f"[chunk {chunk_idx}] appending {n} samples starting at ts={timestamp}, prev_dt={prev_dt:.3f}")
-        # for i, val in enumerate(values):
-        #     ts = int(timestamp + i * prev_dt)
-        #     all_data.append((ts, val))
-        # log.debug(f"[chunk {chunk_idx}] all_data size now={len(all_data)}")
-        # PRE-LOOP: log everything we are about to iterate over
-        # log.debug(f"[chunk {chunk_idx}][PRE-LOOP] n={n}, timestamp={timestamp!r} (type={type(timestamp).__name__}), prev_dt={prev_dt!r} (type={type(prev_dt).__name__})")
-        # log.debug(f"[chunk {chunk_idx}][PRE-LOOP] values type={type(values).__name__}, len={len(values)}, first_val={values[0]!r} (type={type(values[0]).__name__}), last_val={values[-1]!r} (type={type(values[-1]).__name__})")
         try:
             for i, val in enumerate(values):
-                # INSIDE-LOOP: log every iteration
                 # log.debug(f"[chunk {chunk_idx}][LOOP i={i}] val={val!r} (type={type(val).__name__}), ts_raw={timestamp + i * prev_dt!r}, ts_int={int(timestamp + i * prev_dt)}")
                 ts = int(timestamp + i * prev_dt)
                 all_data.append((ts, val))
         except Exception as e:
-            # EXCEPTION: log exactly where and what crashed
             log.error(f"[chunk {chunk_idx}][LOOP-CRASH] crashed at i={i}, val={val!r} (type={type(val).__name__}), timestamp={timestamp!r}, prev_dt={prev_dt!r}, error={type(e).__name__}: {e}")
             raise
         # log.debug(f"[chunk {chunk_idx}][POST-LOOP] all_data size now={len(all_data)}")
@@ -403,7 +370,6 @@ async def process_regular_stream(stream_name, entries, output_file, relative_tim
     log.debug(f"[process_regular_stream] chunk loop done, all_data size={len(all_data)}")
 
     if not all_data:
-        #print(f"No valid samples found for {stream_name}, skipping.")
         log.warning(f"No valid samples found for {stream_name}, skipping.")
         return
 
@@ -432,7 +398,6 @@ async def process_regular_stream(stream_name, entries, output_file, relative_tim
                 log.debug(f"[gap-fill] gap exceeds threshold -> num_missing={num_missing}")
                 if num_missing > 0:
                     log.warning(f"[gap-fill] ECG gap: {gap:.1f} ms -> inserting {num_missing} fill samples (from {prev_ts} to {ts})")
-                    #print(f" ECG gap detected: {gap:.1f}ms -> inserting {num_missing} missing samples (from {prev_ts} to {ts})")
                     log.debug(f"[gap-fill] ECG gap detected: {gap:.1f}ms -> inserting {num_missing} missing samples (from {prev_ts} to {ts})")
                     for i in range(num_missing):
                         prev_ts += prev_dt
@@ -443,10 +408,8 @@ async def process_regular_stream(stream_name, entries, output_file, relative_tim
     else:
         # For non-ECG, just keep samples as-is (no gap filling)
         filled_data.extend(all_data[1:])
-        #print(" Non-ECG stream: skipping gap filling.")
         log.debug("[process_regular_stream] Non-ECG stream: skipping gap filling.")
         log.debug(" Non-ECG stream: skipping gap filling.") 
-    #print(f"  Total samples (after filling): {len(filled_data)}")
     log.debug(f"  Total samples (after filling): {len(filled_data)}")
     log.debug(f"[process_regular_stream] Total samples after filling: {len(filled_data)}")
 
@@ -495,13 +458,11 @@ async def process_regular_stream(stream_name, entries, output_file, relative_tim
         if remaining:
             await csvfile.write(remaining)
 
-    #print(f"Saved {len(filled_data)} samples to {stream_output}\n")
     log.debug(f"Saved {len(filled_data)} samples to {stream_output}\n")
     log.info(f"[process_regular_stream] Saved {len(filled_data)} samples to {stream_output}")
 
 async def main():
     if len(sys.argv) < 3:
-        #print(f"Usage: python {sys.argv[0]} <input_json_file> <output_csv_file>")
         log.error(f"Usage: python {sys.argv[0]} <input_json_file> <output_csv_file>")
         sys.exit(1)
 
