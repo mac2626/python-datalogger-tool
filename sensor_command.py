@@ -628,6 +628,8 @@ class SensorCommand:
 
             last_offset = 0
             missing_packet_detected = False
+            end_of_log_received = False
+            timed_out = False
             with open(filename, 'wb') as f_log:
                 while True:
                     try:
@@ -653,6 +655,7 @@ class SensorCommand:
                                     self.logger.error( f"Packet loss detected Expected offset {expected_offset}, "
                                                         f"but received {offset}. Missing {offset - expected_offset} bytes."
                                                     )
+                                    break
                                 last_offset = offset + packet_size
 
                                 if progress_callback:
@@ -666,13 +669,18 @@ class SensorCommand:
                                     self.logger.info(f"End of log data received for log: {log_id}")
                                     # Wait a bit to ensure all data is processed
                                     await asyncio.sleep(1)
+                                    end_of_log_received = True
                                     break
                             else:
                                 self.logger.warning("Received data packet too short")
                                 break
+
+                        else:
+                            self.logger.warning(f"Unexpected response while fetching data: {data_response.get('response_code')}")
                         
                     except asyncio.TimeoutError:
                         self.logger.warning("Data fetch timeout")
+                        timed_out = True
                         break
 
             if missing_packet_detected: 
@@ -684,6 +692,15 @@ class SensorCommand:
                     'error': 'Incomplete log data: one or more packets were missing during transfer'
                 }
             
+            if timed_out or not end_of_log_received:
+                return {
+                    'success': False,
+                    'filename': filename,
+                    'size': last_offset,
+                    'log_id': log_id,
+                    'error': 'Log transfer did not complete: timed out before end-of-log marker was received'
+                }
+
             return {
                 'success': True,
                 'filename': filename,
