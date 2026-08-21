@@ -107,21 +107,10 @@ async def csv_to_edf_plus(csv_filename, edf_filename=None, sampling_freq=None, u
         print(f"\n WARNING: Peak-to-peak amplitude ({peak_to_peak:.3f} mV) seems very small for ECG!")
         print(f"  Typical ECG in mV: 0.5-3.0 mV peak-to-peak")
         print(f"  Your data might be in microvolts (µV) or need scaling.")
-    
-    # Use data range with margin, but ensure reasonable minimum range
-    range_margin = max(abs(data_max), abs(data_min)) * 0.2
-    physical_max = data_max + range_margin
-    physical_min = data_min - range_margin
-    
-    # Ensure minimum range to avoid flat-looking signals
-    if physical_max - physical_min < 1.0:
-        center = (physical_max + physical_min) / 2
-        physical_max = center + 0.5
-        physical_min = center - 0.5
-
+        
     # Round to avoid EDF+ precision warnings
-    physical_max = round(physical_max, 2)
-    physical_min = round(physical_min, 2)
+    physical_max = +32.767
+    physical_min = -32.768
     
     signal_header = {
         'label': 'ECG',
