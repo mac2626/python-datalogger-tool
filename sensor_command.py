@@ -768,11 +768,8 @@ class SensorCommand:
         """Get resource data using GET command."""
         path_bytes = resource_path.encode('utf-8') + b'\x00'  # Null-terminated
         command = bytearray([GSP_CMD_GET, 105]) + path_bytes
-        print(f"Sending GET command for resource_path: {resource_path}, command: {command}")
         response = await self.send_command(command)
 
-        print(f"GET command response: {response}, resource_path: {resource_path}, raw_data: {response.get('raw_data')}")
-        
         if response.get('response_code') == GSP_RESP_COMMAND_RESPONSE:
             status_code = response.get('status_code', 0)
             return {
