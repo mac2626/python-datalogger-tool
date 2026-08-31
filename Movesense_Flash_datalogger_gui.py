@@ -4,6 +4,7 @@ from logging import FileHandler
 import tkinter as tk
 from tkinter import ttk, scrolledtext, filedialog, messagebox
 from async_tkinter_loop import async_handler, async_mainloop
+from sbem_tools import SBEM2JSONConverter
 from csv2edf import csv_to_edf_plus
 from ms_json2csv import convert_json_to_csv
 from PIL import Image, ImageTk
@@ -24,6 +25,7 @@ import queue
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 
+
 # Debug file logging setup
 _start_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -38,7 +40,13 @@ _log_path = os.path.join(_base_dir, f"debug_{_start_ts}.log")
 logging.root.setLevel(logging.DEBUG)
 #get_local_bt_info()
 
-SBEM2JSON_EXECUTABLE = "sbem2json.exe" if os.name == "nt" else "sbem2json"  # Ensure this is in your PATH or have in current directory
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 class AdvancedConfigDialog:
     """Dialog for advanced configuration options"""
@@ -241,6 +249,8 @@ class AdvancedConfigDialog:
         self.result = self.config_text.get("1.0", tk.END).strip()
         self.dialog.destroy()
 
+APP_VERSION = "1.1.0"
+
 class AboutDialog:
     """Dialog for About information and licenses"""
     def __init__(self, parent):
@@ -321,6 +331,9 @@ class DataloggerGUI:
         self.root = root
         self.root.title("Movesense Flash Datalogger Tool")
         self.root.geometry("800x800")
+
+        # Set window icon
+        self.root.iconbitmap(resource_path("Movesense_favico_32x32.ico"))
 
         self.logging_configured = False
         self.logging_active = False
@@ -518,6 +531,10 @@ class DataloggerGUI:
         # Erase button on the right
         self.erase_button = ttk.Button(bottom_frame, text="Erase Memory", command=self.erase_memory, width=20, state='disabled')
         self.erase_button.grid(row=0, column=3, padx=5, sticky=tk.E)
+
+        # Version label on the right
+        self.version_label = ttk.Label(bottom_frame, text=f"v{APP_VERSION}", foreground="gray")
+        self.version_label.grid(row=0, column=4, padx=(5, 0), sticky=tk.E)
 
         # Force checkbox 
         self.force_var = tk.BooleanVar()
@@ -1360,41 +1377,53 @@ class DataloggerGUI:
                             else:
                                 application_path = os.path.dirname(os.path.abspath(__file__))
 
-                            sbem2json_exe = os.path.join(application_path, SBEM2JSON_EXECUTABLE)
-                            converter_cmd = f'"{sbem2json_exe}" --sbem2json "{sbem_file}" --output "{json_file}"'
+                            self._log_queue.put(('log', f'Converting {sbem_file} -> {json_file}'))
+
+                            try:
+                                converter = SBEM2JSONConverter(
+                                    sbem_file,
+                                    output_format="json"
+                                )
+                                await converter.convert(json_file)
+                                result = 0
+                            except Exception as e:
+                                    logging.exception("SBEM conversion failed")
+                                    result = -1
+                                    self._log_queue.put(
+                                        ('log', f"SBEM conversion error: {e}")
+                                    )
+
+                            if result != 0:
+                                    logging.getLogger(__name__).warning(
+                                    f"Step 2: SBEM conversion failed for {sbem_filename}"
+                                    )
+                                    self._log_queue.put(
+                                    ('log', f"Warning: Conversion failed for {sbem_filename}\n")
+                                    )
+                            else:
+                                    logging.getLogger(__name__).info(f"Step 2: Created {json_file}")
+                                    self._log_queue.put(
+                                    ('log', f"\nCreated: {json_file}\n"))
                             
-                            conv_process = await asyncio.create_subprocess_shell(
-                                converter_cmd,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT
-                            )
-                            conv_output, _ = await conv_process.communicate()
-                            if conv_output:
-                                conv_output = conv_output.decode()
-                                stdout_lines = conv_output.strip().splitlines()
-                                for line in stdout_lines:
-                                    if "invalid map<K, T>" not in line and "SmlDescriptor::parseModifier:" not in line:
-                                        self._log_queue.put(('log', line))
-                            
-                            if conv_process.returncode != 0:
-                                logging.getLogger(__name__).warning(f"Step 2: SBEM conversion failed for {sbem_filename}, returncode={conv_process.returncode}")
+                            if result != 0:
+                                logging.getLogger(__name__).warning(f"Step 2: SBEM conversion failed for {sbem_filename}, returncode={result}")
                                 self._log_queue.put(('log', f"Warning: Conversion failed for {sbem_filename}\n"))
                             else:
                                 logging.getLogger(__name__).info(f"Step 2: Created {json_file}")
                                 self._log_queue.put(('log', f"\nCreated: {json_file}\n"))
                                 
-                                utc_time = self.extract_utc_time_from_json(json_file)
-                                if utc_time:
-                                    self._log_queue.put(('log', f"UTC time from file: {utc_time}"))
-                                    self.rename_files_with_utc(json_file, utc_time)
-                                    # Reconstruct renamed JSON path directly
-                                    dir_path = os.path.dirname(json_file)
-                                    base_name = os.path.splitext(os.path.basename(json_file))[0]
-                                    parts = base_name.split('_')
-                                    if len(parts) >= 4:
-                                        new_base = '_'.join(parts[:4])
-                                        json_file = os.path.join(dir_path, f"{new_base}_{utc_time}.json")
-                                    logging.getLogger(__name__).info(f"Step 2: Renamed files based on UTC time for {json_file}")
+                            utc_time = self.extract_utc_time_from_json(json_file)
+                            if utc_time:
+                                self._log_queue.put(('log', f"UTC time from file: {utc_time}"))
+                                self.rename_files_with_utc(json_file, utc_time)
+                                # Reconstruct renamed JSON path directly
+                                dir_path = os.path.dirname(json_file)
+                                base_name = os.path.splitext(os.path.basename(json_file))[0]
+                                parts = base_name.split('_')
+                                if len(parts) >= 4:
+                                    new_base = '_'.join(parts[:4])
+                                    json_file = os.path.join(dir_path, f"{new_base}_{utc_time}.json")
+                                logging.getLogger(__name__).info(f"Step 2: Renamed files based on UTC time for {json_file}")
 
                                 
                                 new_sbem_path = os.path.join(sbem_folder, sbem_filename)
