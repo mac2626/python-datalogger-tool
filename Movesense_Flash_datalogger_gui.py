@@ -1308,7 +1308,29 @@ class DataloggerGUI:
             with redirect_stdout(output):
                 # Step 1: Fetch data
                 logging.getLogger(__name__).info(f"Step 1: Starting BLE fetch for serial={serial}, output_dir={output_dir}")
-                result = await tool.fetch_data(serial=serial, args=None, output_dir=output_dir, progress_callback=progress_callback)
+                max_retries = 3
+                result = None
+                for attempt in range(1, max_retries+1):
+                    logging.getLogger(__name__).info(f"Fetch attempt {attempt} of {max_retries}")
+                    result = await tool.fetch_data(serial=serial, args=None, output_dir=output_dir, progress_callback=progress_callback)
+                    if result.get("success"):
+                        logging.getLogger(__name__).info(f"Fetch succeeded on attempt {attempt}")
+                        break
+
+                    error = result.get("error", "")
+
+                    logging.getLogger(__name__).warning(f"Fetch failed on attempt {attempt}: {error}")
+
+                    # Only retry packet loss / incomplete transfers
+                    if ("packet" not in error.lower() and "incomplete" not in error.lower() and "timed out" not in error.lower()):
+                        logging.getLogger(__name__).info("Failure does not look retryable, aborting.")
+                        break
+                    
+                    if attempt < max_retries:
+                        self.root.after(0,self.log_output,f"\nTransfer failed, retrying ({attempt}/{max_retries})...\n")
+
+                        await asyncio.sleep(1)
+
                 logging.getLogger(__name__).info(f"Step 1: fetch_data result={result}")
                 self.logging_configured = False
                
