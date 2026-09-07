@@ -115,12 +115,25 @@ class SensorCommand:
     
     async def _discover_and_connect(self) -> bool:
         """Combined discover and connect operation."""
+
+        logging.getLogger("bleak.backends.winrt.scanner").setLevel(logging.WARNING)
+        logging.getLogger("bleak.backends.winrt.client").setLevel(logging.WARNING)
+
         # Discover device with early detection callback
         device_found = asyncio.Event()
         target_device = None
         
         def detection_callback(device, advertisement_data):
             nonlocal target_device
+
+            # Ignore unnaamed devices
+            if not device.name:
+                return
+
+            # Ignore everything except Movesense devices
+            if not device.name.startswith("Movesense"):
+                return
+
             self.logger.debug(f"Found device: {device}")
             if device.name and device.name.endswith(self.end_of_serial):
                 self.logger.info(f"Target device found: {device.name}")

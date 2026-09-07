@@ -23,7 +23,23 @@ async def fetch_status_and_battery(serial, args):
             result = await sensor.get_status()
 
             result.update(await sensor.get_battery_level())
+
+            logs = await sensor.get_log_list()
+            
+            if logs.get('success'):
+                entries = logs.get('entries', [])
+
+                result['log_count'] = len(entries)
+                result['has_logs'] = len(entries) > 0
+
+                logging.info(f"Found {len(entries)} logs in logbook for device {serial}")
+
+            else:
+                result['log_count'] = 0
+                result['has_logs'] = False
+
             return result
+        
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
@@ -163,10 +179,11 @@ async def fetch_data(serial, args, output_dir=None, progress_callback=None):
                 logging.info(f"=== FETCHING log_id={log_id}, size={log_info['size']} ===")
                 
                 output_file = None
+                full_serial = sensor.device_name
                 if output_dir:
-                    output_file = f"{output_dir}/Movesense_log_{log_id}_{serial}.sbem"
+                    output_file = f"{output_dir}/Movesense_log_{log_id}_{full_serial}.sbem"
                 elif hasattr(args, 'output') and args.output:
-                    output_file = f"{args.output}/Movesense_log_{log_id}_{serial}.sbem"
+                    output_file = f"{args.output}/Movesense_log_{log_id}_{full_serial}.sbem"
                 
                 total_size = log_info['size']
                 has_known_size = log_info['has_known_size']

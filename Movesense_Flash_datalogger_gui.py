@@ -338,6 +338,7 @@ class DataloggerGUI:
         self.logging_configured = False
         self.logging_active = False
         self.device_connected = False
+        self.logs_available = False
         
         # Load and display the logo
         try:
@@ -613,7 +614,10 @@ class DataloggerGUI:
             self.connect_button.config(state='normal')
             self.start_button.config(state='normal')
             self.stop_button.config(state='disabled')
-            self.fetch_button.config(state='normal')
+            if self.logs_available:
+                self.fetch_button.config(state='normal')
+            else:
+                self.fetch_button.config(state='disabled')
             self.clear_button.config(state='normal')
             self.about_button.config(state='normal')
             self.browse_button.config(state='normal')
@@ -655,10 +659,8 @@ class DataloggerGUI:
                 self.logging_serial = None
                 self.logging_configured = False
                 self.update_button_states()
-                self.log_output(f"Serial number changed. Please click Connect again.\n")
         if hasattr(self, 'battery_label'):
             self.battery_label.config(text="Battery: --", foreground="gray")
-
 
     def show_advanced_config(self):
         """Show the advanced configuration dialog"""
@@ -728,30 +730,6 @@ class DataloggerGUI:
             messagebox.showwarning("Warning", "Please enter a serial number")
             return None
         return serial
-    
-    def logging_data(self):
-        """Print dots to show logging is active"""
-        if hasattr(self, 'logging_active') and self.logging_active:
-            # Alternate between two different marks
-            if not hasattr(self, 'logging_counter'):
-                self.logging_counter = 0
-            
-            mark = "*" if self.logging_counter % 2 == 0 else "."
-            self.log_output(mark, newline=False)
-            self.logging_counter += 1
-            
-            self.root.after(2000, self.logging_data)
-
-        if hasattr(self, 'fetching_active') and self.fetching_active:
-            # Alternate between two different marks
-            if not hasattr(self, 'logging_counter'):
-                self.logging_counter = 0
-            
-            mark = "*" if self.logging_counter % 2 == 0 else "."
-            self.log_output(mark, newline=False)
-            self.logging_counter += 1
-            
-            self.root.after(2000, self.logging_data)
 
     def extract_utc_time_from_json(self, json_file):
         """Extract UTC time from JSON file"""
@@ -818,11 +796,11 @@ class DataloggerGUI:
     
     @async_handler
     async def check_status(self):
-        # Disable immediately to prevent double clicks
+        """Check device status"""
         self.disable_all_buttons()
         if self.verbose_var.get():
             logging.getLogger().setLevel(logging.DEBUG)
-        """Check device status"""
+        
         try:
             serial = self.serial_entry.get().strip()
             logging.getLogger(__name__).info(f"check_status called, serial='{serial}")
@@ -834,7 +812,7 @@ class DataloggerGUI:
                 self.update_button_states()
                 return
             
-            self.root.after(0, self.log_output, "Connecting sensor and loading status. Please note that battery state may take a moment to load.")
+            self.root.after(0, self.log_output, "Connecting sensor and loading status. Some information may take a moment to update.")
             self.root.after(0, self.status_var.set, "Connecting sensor and loading status.")
                 
             # Capture stdout to show in GUI
@@ -865,6 +843,17 @@ class DataloggerGUI:
                 self.update_button_states()
                 return
             
+            log_count = status.get("log_count", 0)
+
+            if log_count > 0:
+                self.logs_available = True
+                self.root.after(0, self.log_output, f"\nSensor contains {log_count} log(s) stored. Use 'Load Data' to fetch the data or 'Erase Memory' to clear the sensor memory.\n")
+            else:
+                self.logs_available = False
+                self.root.after(0, self.log_output, "\nSensor contains no logs.\n")
+
+            self.update_button_states()
+
             # Check if product name is Movesense 
             product_name = status.get('product_name', '')
             if product_name != 'Movesense':
@@ -934,7 +923,6 @@ class DataloggerGUI:
                 self.logging_serial = serial
                 self.root.after(0, self.log_output, 
                     f"Device is currently logging. Use 'Stop Logging' to stop.\n")
-                self.root.after(2000, self.logging_data)
             else:
                 self.logging_active = False
                 self.logging_serial = None
@@ -1107,13 +1095,12 @@ class DataloggerGUI:
 
                 # Success path
                 logging.getLogger(__name__).info(f"Logging successfully started on device {serial}")
-                self.root.after(0, self.log_output, f"Logging started on device {serial}. Recording data...")
+                self.root.after(0, self.log_output, f"Logging started on device {serial}. Recording data...\n")
                 self.root.after(0, self.status_var.set, "Logging started.")
                 self.logging_active = True
                 self.logging_serial = serial
                 self.update_button_states()
-                self.root.after(2000, self.logging_data)
-                logging.getLogger(__name__).info("Button states updated, logging_data scheduled in 2000ms")
+                logging.getLogger(__name__).info("Button states updated")
 
             else:
                 # Already configured — just start logging
@@ -1141,8 +1128,7 @@ class DataloggerGUI:
                 self.root.after(0, self.status_var.set, "Logging started.")
                 self.logging_active = True
                 self.update_button_states()
-                self.root.after(2000, self.logging_data)
-                logging.getLogger(__name__).info("Button states updated, logging_data scheduled in 2000ms")
+                logging.getLogger(__name__).info("Button states updated")
 
         except Exception as e:
             error_text = f"\nError: {str(e)}\n\n{traceback.format_exc()}"
@@ -1195,6 +1181,7 @@ class DataloggerGUI:
                 self.logging_active = False
                 self.logging_serial = None
                 self.logging_configured = False
+                self.logs_available = True 
                 self.update_button_states()
 
         except Exception as e:
@@ -1266,7 +1253,7 @@ class DataloggerGUI:
 
         try:
             logging.getLogger(__name__).info("Starting fetch process")
-            self.root.after(0, self.log_output, f"\nLoading data from device {serial}.")
+            self.root.after(0, self.log_output, f"Loading data from device {serial}.")
             self.root.after(0, self.status_var.set, "Loading data from device")
 
             # Reset progress bars
@@ -1275,8 +1262,6 @@ class DataloggerGUI:
 
             # Set logging active flag 
             self.fetching_active = True
-            logging.getLogger(__name__).info("Scheduling logging_data watchdog in 2000 ms")
-            self.root.after(2000, self.logging_data)
 
             # Capture stdout to show in GUI
             output = io.StringIO()
@@ -1614,9 +1599,8 @@ class DataloggerGUI:
 
                     self.fetching_active = False
                     logging.getLogger(__name__).info("conversion_worker completed successfully")
-                    self._log_queue.put(('status', "All conversions completed."))
-                    self._log_queue.put(('log', "All conversions completed."))
-                    self._log_queue.put(('log', "\nDone!\n"))
+                    self._log_queue.put(('status', "Loading completed."))
+                    self._log_queue.put(('log', "\nLoading completed."))
 
                 except Exception as e:
                     self.fetching_active = False
@@ -1671,8 +1655,9 @@ class DataloggerGUI:
             
             # Update GUI with captured output
             self.root.after(0, self.log_output, output.getvalue())
-            self.root.after(0, self.log_output, "Memory erased successfully")
+            self.root.after(0, self.log_output, "Memory erased successfully\n")
             self.root.after(0, self.status_var.set, "Memory erased")
+            self.logs_available = False
                 
         except Exception as e:
             error_msg = str(e)
