@@ -664,7 +664,7 @@ class SensorCommand:
                                     self.logger.error( f"Packet loss detected Expected offset {expected_offset}, "
                                                         f"but received {offset}. Missing {offset - expected_offset} bytes."
                                                     )
-                                    break
+
                                 last_offset = offset + packet_size
 
                                 if progress_callback:
