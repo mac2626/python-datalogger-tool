@@ -106,6 +106,7 @@ async def stop_logging(serial, args):
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
+#async def fetch_data(serial, args, output_dir=None, progress_callback=None, simulate_missing_packet=True):
 async def fetch_data(serial, args, output_dir=None, progress_callback=None):
     """Fetch data from a specific device."""
     fetched_files = []
@@ -113,6 +114,7 @@ async def fetch_data(serial, args, output_dir=None, progress_callback=None):
         async with SensorCommand(serial, set_time=False) as sensor:
             # Dictionary to store all discovered logs
             discovered_logs = {}
+            #sensor.simulating_missing_packet = simulate_missing_packet
             
             # Step 1: Get first batch of logs (max 4) from logbook
             logs = await sensor.get_log_list()
@@ -171,7 +173,8 @@ async def fetch_data(serial, args, output_dir=None, progress_callback=None):
             file_sizes = [log_info['size'] for log_info in discovered_logs.values()]
             total_bytes = sum(file_sizes)
             bytes_downloaded_so_far = 0
-            
+
+            failed_logs = []
             # Fetch each log
             for idx, (log_id, log_info) in enumerate(sorted(discovered_logs.items()), 1):
                 start_time = datetime.now()
@@ -211,6 +214,8 @@ async def fetch_data(serial, args, output_dir=None, progress_callback=None):
                     logging.error(f"FAILED: {result}")
                     if 'status_code' in result and result['status_code'] != 404:
                         logging.error(f"Status {result['status_code']}: {result.get('error', 'Unknown error')}")
+                    if result.get('status_code') != 404:
+                        failed_logs.append({'log_id': log_id, 'error': result.get('error', 'Unknown error')})
                 else:
                     end_time = datetime.now()
                     duration = (end_time - start_time).total_seconds()
@@ -234,6 +239,10 @@ async def fetch_data(serial, args, output_dir=None, progress_callback=None):
 
             await sensor.disconnect()
 
+            if failed_logs:
+                error = "; ".join(f"log {f['log_id']}: {f['error']}" for f in failed_logs)
+                logging.error(f"Fetch completed with {len(failed_logs)} failed logs: {error}")
+                return {'success': False, 'files_fetched': fetched_files, 'total_logs': total_logs, 'failed_logs': failed_logs, 'error': f'{len(failed_logs)} of {total_logs} log(s) failed to fetch: {error}'}
             return {'success': True, 'files_fetched': fetched_files, 'total_logs': total_logs}
 
     except Exception as e:
