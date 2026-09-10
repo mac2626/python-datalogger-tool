@@ -135,7 +135,7 @@ class SensorCommand:
             if not device.name.startswith("Movesense"):
                 return
 
-            self.logger.debug(f"Found device: {device}")
+            self.logger.debug(f"Found device: {device}, RSSI: {advertisement_data.rssi}")
             if device.name and device.name.endswith(self.end_of_serial):
                 self.logger.info(f"Target device found: {device.name}")
                 target_device = device
@@ -146,7 +146,7 @@ class SensorCommand:
         
         try:
             # Wait for device to be found or timeout after 10 seconds
-            await asyncio.wait_for(device_found.wait(), timeout=10)
+            await asyncio.wait_for(device_found.wait(), timeout=100)
             self.device_address = target_device.address
             self.device_name = target_device.name
         except asyncio.TimeoutError:
