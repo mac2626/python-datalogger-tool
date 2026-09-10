@@ -13,15 +13,15 @@ async def fetch_status(serial, args):
             result = await sensor.get_status()
             return result
     except Exception as e:
-        return {'success': False, 'error': str(e)}
-
-
+        return {'success':False, 'error':str(e)}
+    
 async def fetch_status_and_battery(serial, args):
     """Fetch status from a specific device."""
     try:
         async with SensorCommand(serial) as sensor:
             result = await sensor.get_status()
 
+            result.update(await sensor.get_battery_state())
             result.update(await sensor.get_battery_level())
 
             logs = await sensor.get_log_list()
@@ -41,7 +41,7 @@ async def fetch_status_and_battery(serial, args):
             return result
         
     except Exception as e:
-        return {'success': False, 'error': str(e)}
+        return {'success':False, 'error':str(e)}
 
 async def configure_device(serial, args = None, paths = None):
     """Configure a specific device."""
@@ -61,7 +61,7 @@ async def configure_device(serial, args = None, paths = None):
             result = await sensor.configure_device(config_data)
             return result
     except Exception as e:
-        return {'success': False, 'error': str(e)}
+        return {'success':False, 'error':str(e)}
 
 async def start_logging(serial, args):
     """Start logging on a specific device."""
@@ -72,7 +72,7 @@ async def start_logging(serial, args):
             logging.info(f"Sensor state after start: {status}")
             return result
     except Exception as e:
-        return {'success': False, 'error': str(e)}
+        return {'success':False, 'error':str(e)}
 
 async def stop_logging(serial, args):
     """Stop logging and boot sensor to start a new log."""
@@ -104,7 +104,7 @@ async def stop_logging(serial, args):
             return boot_result
             
     except Exception as e:
-        return {'success': False, 'error': str(e)}
+        return {'success':False, 'error':str(e)}
 
 async def fetch_data(serial, args, output_dir=None, progress_callback=None):
     """Fetch data from a specific device."""

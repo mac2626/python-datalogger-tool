@@ -359,24 +359,52 @@ class SensorCommand:
         except Exception as e:
             self.logger.error(f"Command failed: {e}")
             raise
+
+    async def get_battery_state(self) -> Dict[str, Any]:
+        response = await self.get_resource("/System/States/1")
+        logging.info(f"Battery state result: {response}")
+        
+        retval = {}
+        if response.get('success'):
+            status_code = response.get('status_code', 0)
+            if status_code == 200:
+                command_data = response.get('data', b'')
+                
+                if len(command_data) >= 1:
+                    dv = DataView(command_data)
+                    batt_state = dv.get_uint_8(0)
+                    
+                    retval.update({
+                        'low_battery_state': batt_state})
+        return retval
     
     async def get_battery_level(self) -> Dict[str, Any]:
-        response = await self.get_resource("/System/Energy/Level")
-        logging.info(f"Battery level result: {response}")
+        response = await self.get_resource("/System/Energy")
         
         retval = {}
         if response.get('success'):
             status_code = response.get('status_code', 0)
             if status_code == 200:  # HTTP OK
-                # Parse HELLO response data
-                command_data = response.get('data', b'')
+                # Parse response data
+                response_data = response.get('data', b'')
                 
-                if len(command_data) >= 1:  # At least protocol version + null terminators
-                    dv = DataView(command_data)
+                if len(response_data) >= 4:  
+                    dv = DataView(response_data)
                     batt_level = dv.get_uint_8(0)
-                    
+                    millivolts = dv.get_uint_16(1)
+                    internal_resistance = dv.get_uint_8(3)
+
+                    self.logger.info(
+                        f"Battery Level: {batt_level}%, "
+                        f"{millivolts} mV, "
+                        f"Internal Resistance: {internal_resistance} Ohm"
+                    )
+                                        
                     retval.update({
-                        'battery_level': batt_level})
+                        'battery_level': batt_level,
+                        'millivolts': millivolts,
+                        'internal_resistance': internal_resistance
+                    })
         return retval
 
     async def get_status(self) -> Dict[str, Any]:
@@ -389,7 +417,7 @@ class SensorCommand:
         if response.get('response_code') == GSP_RESP_COMMAND_RESPONSE:
             status_code = response.get('status_code', 0)
             if status_code == 200:  # HTTP OK
-                # Parse HELLO response data
+                # Parse response data
                 command_data = response.get('command_data', b'')
                 
                 if len(command_data) >= 5:  # At least protocol version + null terminators
