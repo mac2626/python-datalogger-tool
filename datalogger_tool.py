@@ -41,7 +41,13 @@ async def fetch_status_and_battery(serial, args):
             return result
         
     except Exception as e:
-        return {'success':False, 'error':str(e)}
+        logging.exception('Failed to fetch status')
+
+        logging.info(f"Exception type: {type(e)}")
+        logging.info(f"Exception name: {type(e).__name__}")
+        logging.info(f"Exception text: {e}")
+
+        return {'success':False, 'error':str(e), 'exception_type':type(e).__name__}
 
 async def configure_device(serial, args = None, paths = None):
     """Configure a specific device."""
