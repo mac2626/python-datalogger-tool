@@ -820,27 +820,6 @@ class DataloggerGUI:
             with redirect_stdout(output):
                 status = await tool.fetch_status_and_battery(serial=serial, args=None)
 
-            # # Handle tool errors
-            # if isinstance(status, dict) and not status.get("success", True):
-            #     error_msg = status.get("error", "Status fetch failed (unknown error).")
-
-            #     # Check if it's a characteristic UUID error
-            #     if "characteristic" in error_msg.lower() or "uuid" in error_msg.lower():
-            #         messagebox.showerror(
-            #             "Characteristic UUID Error",
-            #             f"The firmware on the sensor does not have GSP protocol.\n"
-            #             f"Please update the sensor to latest default firmware.\n"
-            #         )
-            #     elif "The device is not ready for use" in error_msg:
-            #         messagebox.showerror(
-            #             "Please Check Bluetooth Connection",
-            #             f"Please ensure that Bluetooth is enabled on your computer and try again.\n"
-            #         )
-            #     else:
-            #         messagebox.showerror(
-            #             "Connection Error",
-            #             f"Failed to connect to device.\n\n{error_msg}"
-            #         )
             if isinstance(status, dict) and not status.get("success", True):
                 error_msg = status.get("error", "")
                 exc_type = status.get("exception_type", "")
@@ -865,7 +844,6 @@ class DataloggerGUI:
                     "Connection Error",
                     f"Failed to connect to device.\n\n{error_msg}"
                 )
-
 
                 self.root.after(0, self.log_output, f"Error during status fetch.\n")
                 self.root.after(0, self.log_output, f"Please ensure that Bluetooth is enabled and the sensor is powered on. To activate the sensor, touch the studs.\n")
