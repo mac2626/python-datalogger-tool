@@ -831,6 +831,11 @@ class DataloggerGUI:
                         f"The firmware on the sensor does not have GSP protocol.\n"
                         f"Please update the sensor to latest default firmware.\n"
                     )
+                elif "The device is not ready for use" in error_msg:
+                    messagebox.showerror(
+                        "Please Check Bluetooth Connection",
+                        f"Please ensure that Bluetooth is enabled on your computer and try again.\n"
+                    )
                 else:
                     messagebox.showerror(
                         "Connection Error",
@@ -838,6 +843,7 @@ class DataloggerGUI:
                     )
 
                 self.root.after(0, self.log_output, f"Error during status fetch: {error_msg}\n")
+                self.root.after(0, self.log_output, f"Please ensure that Bluetooth is enabled and the sensor is powered on. To activate the sensor, touch the studs.\n")
                 self.root.after(0, self.status_var.set, "Status fetch failed.")
                 self.device_connected = False
                 self.update_button_states()
