@@ -935,6 +935,8 @@ class DataloggerGUI:
                 print(f"  Firmware: {status.get('app_name', 'Unknown')}, App version: {status.get('app_version', 'Unknown')}")
                 if status.get('app_name') == 'Default Firmware' and status.get('app_version') == '1.0.1':
                     print(f"  SDK: 2.3.1 / 2.3.2")
+                else: 
+                    print(f"  SDK: -")
                 print(f"  DataLogger state: {tool.DL_STATES[status.get('dlstate', 1)]}")
                 print(f"  Battery level: {status.get('battery_level', 'Unknown')}%")
 
