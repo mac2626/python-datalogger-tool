@@ -1337,18 +1337,13 @@ class DataloggerGUI:
 
                     fetched_files = fetch_result.get("files_fetched", [])
 
-                    sbem_files = [f for f in fetched_files if f.lower().endswith(".sbem")]
-                    # for root_dir, dirs, files in os.walk(output_dir):
-                    #     if 'sbem-files' in root_dir:
-                    #         continue
-                    #     for file in files:
-                    #         if file.endswith('.sbem'):
-                    #             sbem_files.append(os.path.join(root_dir, file))
+                    sbem_files = [os.path.normpath(f) for f in fetched_files if f.lower().endswith(".sbem")]
                     logging.getLogger(__name__).info(f"files_fetched = {fetch_result.get('files_fetched')}")
                     logging.getLogger(__name__).info(f"Step 2: Found {len(sbem_files)} SBEM files to convert")
                     if not sbem_files:
                         self._log_queue.put(('log', "No SBEM files found to convert."))
                     else:
+                        created_json_files = []
                         for sbem_file in sbem_files:
                             #logging.getLogger(__name__).info(f"Step 2: Converting {sbem_file}")
                             logging.getLogger(__name__).info(f"Step 2: Converting {sbem_file} (size={os.path.getsize(sbem_file)} bytes)")
@@ -1357,6 +1352,9 @@ class DataloggerGUI:
                             original_dir = os.path.dirname(sbem_file)
                             sbem_filename = os.path.basename(sbem_file)
                             json_filename = os.path.splitext(sbem_filename)[0] + '.json'
+                            archieved_json = os.path.join(output_dir, "json_files", json_filename)
+                            if os.path.exists(archieved_json):
+                                self._log_queue.put('log', f"Skipping {sbem_filename} - JSON already exists")
                             json_file = os.path.join(original_dir, json_filename)
 
                             if getattr(sys, 'frozen', False):
@@ -1375,15 +1373,16 @@ class DataloggerGUI:
                                 conversion_result = 0
                             except Exception as e:
                                     logging.exception("SBEM conversion failed")
-                                    conersion_result = -1
+                                    conversion_result = -1
                                     self._log_queue.put(
                                         ('log', f"SBEM conversion error: {e}")
                                     )
 
-                            if conersion_result != 0:
+                            if conversion_result != 0:
                                     logging.getLogger(__name__).warning(f"Step 2: SBEM conversion failed for {sbem_filename}")
                                     self._log_queue.put(('log', f"Warning: Conversion failed for {sbem_filename}\n"))
                             else:
+                                    created_json_files.append(json_file)
                                     logging.getLogger(__name__).info(f"Step 2: Created {json_file}")
                                     self._log_queue.put(('log', f"\nCreated: {json_file}\n"))
                                 
@@ -1398,6 +1397,8 @@ class DataloggerGUI:
                                 if len(parts) >= 4:
                                     new_base = '_'.join(parts[:4])
                                     json_file = os.path.join(dir_path, f"{new_base}_{utc_time}.json")
+                                    if created_json_files:
+                                        created_json_files[-1] = json_file
                                 logging.getLogger(__name__).info(f"Step 2: Renamed files based on UTC time for {json_file}")
 
                                 
@@ -1420,10 +1421,12 @@ class DataloggerGUI:
                                     new_json_path = os.path.join(json_folder, os.path.basename(json_file))
                                     try:
                                         if os.path.exists(new_json_path):
-                                            self._log_queue.put(('log', f"JSON already archived: {os.path.basename(json_file)}"))
+                                            self._log_queue.put(('log', f"Removed duplicate JSON: {os.path.basename(json_file)}"))
                                         else:
                                             os.rename(json_file, new_json_path)
                                             json_file = new_json_path  # update reference for any further use
+                                            if created_json_files:
+                                                created_json_files[-1] = json_file
                                             self._log_queue.put(('log', f"Moved JSON to: {new_json_path}"))
                                     except Exception as e:
                                         self._log_queue.put(('log', f"Warning: Could not move JSON file: {str(e)}"))
@@ -1438,28 +1441,23 @@ class DataloggerGUI:
                     if advanced_ui:
                         os.makedirs(csv_folder, exist_ok=True)
 
-                    json_files = []
-                    scan_dirs = [json_folder] if os.path.exists(json_folder) else [output_dir]
-                    for scan_dir in scan_dirs:
-                        for root_dir, dirs, files in os.walk(scan_dir):
-                            if any(x in root_dir for x in ['venv', '.venv', 'site-packages', 'sbem-files']):
-                                continue
-                            for file in files:
-                                if file.endswith('.json'):
-                                    json_path = os.path.join(root_dir, file)
-                                    csv_path = os.path.join(csv_folder, os.path.splitext(file)[0] + '.csv')
-                                    if os.path.exists(csv_path):
-                                        self._log_queue.put(('log', f"Skipping {file} - CSV already exists"))
-                                    else:
-                                        json_files.append(json_path)
+                    json_files = created_json_files[:]
 
                     logging.getLogger(__name__).info(f"Step 3: Found {len(json_files)} JSON files to convert to CSV")
+                    json_files = [
+                        f for f in created_json_files
+                        if os.path.exists(f)
+                    ]
+                    logging.getLogger(__name__).info(
+                        f"JSON files for conversion: {json_files}"
+                    )
                     if not json_files:
                         self._log_queue.put(('log', "No JSON files found to convert"))
                     else:
                         counter = 0
                         
                         self.reset_progress_bars()
+                        created_csv_files = []
                         for json_file in json_files:
                             self.root.after(0, self.update_overall_progress, counter*100/len(json_files), counter, len(json_files))
                             #logging.getLogger(__name__).info(f"Step 3: Converting {json_file}")
@@ -1469,6 +1467,14 @@ class DataloggerGUI:
                             csv_file = os.path.join(csv_folder, os.path.splitext(os.path.basename(json_file))[0] + '.csv')
                             try:
                                 await convert_json_to_csv(input_file=json_file, output_file=csv_file, progress_callback=self.update_csv_progress)
+                                #created_csv_files.append(csv_file)
+                                base_name = os.path.splitext(os.path.basename(json_file))[0]
+                                for file in os.listdir(csv_folder):
+                                    if file.startswith(base_name) and file.endswith(".csv"):
+                                        full_path = os.path.join(csv_folder, file)
+                                        if full_path not in created_csv_files:
+                                            created_csv_files.append(full_path)
+                                logging.getLogger(__name__).info(f"Created CSV files: {created_csv_files}")
                                 logging.getLogger(__name__).info(f"Step 3: Created {csv_file}")
                                 self._log_queue.put(('log', f"\nCreated: {csv_file}"))
                                 if not advanced_ui:
@@ -1489,26 +1495,12 @@ class DataloggerGUI:
                     self._log_queue.put(('status', "Converting CSV to EDF..."))
 
                     csv_files = []
-                    csv_files_total = 0
-                    csv_folder = os.path.join(output_dir, "csv-files") if advanced_ui else output_dir
-                    scan_root = csv_folder if os.path.exists(csv_folder) else output_dir
-                    for root_dir, dirs, files in os.walk(scan_root):
-                        if any(x in root_dir for x in ['venv', 'site-packages']):
-                            continue
-                        for file in files:
-                            file_lower = file.lower()
-                            is_ecg = (file_lower.endswith('.csv') and 
-                                    ('measecg' in file_lower or 'measecgmv' in file_lower or 
-                                    (file_lower.startswith('log_') and 'ecg' in file_lower)))
-                            if is_ecg:
-                                csv_files_total += 1
-                                csv_path = os.path.join(root_dir, file)
-                                edf_path = os.path.splitext(csv_path)[0] + '.edf'
-                                if os.path.exists(edf_path):
-                                    self._log_queue.put(('log', f"Skipping {file} - EDF already exists"))
-                                else:
-                                    csv_files.append(csv_path)
-
+                    for csv_file in created_csv_files:
+                        file_lower = os.path.basename(csv_file).lower()
+                        is_ecg = (file_lower.endswith('.csv') and ('measecg' in file_lower or 'measecgmv' in file_lower or (file_lower.startswith('log_') and 'ecg' in file_lower)))
+                        if is_ecg:
+                            csv_files.append(csv_file)
+                    csv_files_total = len(csv_files)
                     logging.getLogger(__name__).info(f"Step 4: Found {len(csv_files)} ECG CSV files to convert to EDF (total ECG CSVs: {csv_files_total})")
                     if not csv_files:
                         if csv_files_total == 0:
