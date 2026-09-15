@@ -1344,7 +1344,7 @@ class DataloggerGUI:
                     #     for file in files:
                     #         if file.endswith('.sbem'):
                     #             sbem_files.append(os.path.join(root_dir, file))
-
+                    logging.getLogger(__name__).info(f"files_fetched = {fetch_result.get('files_fetched')}")
                     logging.getLogger(__name__).info(f"Step 2: Found {len(sbem_files)} SBEM files to convert")
                     if not sbem_files:
                         self._log_queue.put(('log', "No SBEM files found to convert."))
@@ -1372,32 +1372,20 @@ class DataloggerGUI:
                                     output_format="json"
                                 )
                                 await converter.convert(json_file)
-                                result = 0
+                                conversion_result = 0
                             except Exception as e:
                                     logging.exception("SBEM conversion failed")
-                                    result = -1
+                                    conersion_result = -1
                                     self._log_queue.put(
                                         ('log', f"SBEM conversion error: {e}")
                                     )
 
-                            if result != 0:
-                                    logging.getLogger(__name__).warning(
-                                    f"Step 2: SBEM conversion failed for {sbem_filename}"
-                                    )
-                                    self._log_queue.put(
-                                    ('log', f"Warning: Conversion failed for {sbem_filename}\n")
-                                    )
+                            if conersion_result != 0:
+                                    logging.getLogger(__name__).warning(f"Step 2: SBEM conversion failed for {sbem_filename}")
+                                    self._log_queue.put(('log', f"Warning: Conversion failed for {sbem_filename}\n"))
                             else:
                                     logging.getLogger(__name__).info(f"Step 2: Created {json_file}")
-                                    self._log_queue.put(
-                                    ('log', f"\nCreated: {json_file}\n"))
-                            
-                            if result != 0:
-                                logging.getLogger(__name__).warning(f"Step 2: SBEM conversion failed for {sbem_filename}, returncode={result}")
-                                self._log_queue.put(('log', f"Warning: Conversion failed for {sbem_filename}\n"))
-                            else:
-                                logging.getLogger(__name__).info(f"Step 2: Created {json_file}")
-                                self._log_queue.put(('log', f"\nCreated: {json_file}\n"))
+                                    self._log_queue.put(('log', f"\nCreated: {json_file}\n"))
                                 
                             utc_time = self.extract_utc_time_from_json(json_file)
                             if utc_time:
