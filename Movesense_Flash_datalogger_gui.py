@@ -1308,17 +1308,17 @@ class DataloggerGUI:
             with redirect_stdout(output):
                 # Step 1: Fetch data
                 logging.getLogger(__name__).info(f"Step 1: Starting BLE fetch for serial={serial}, output_dir={output_dir}")
-                result = await tool.fetch_data(serial=serial, args=None, output_dir=output_dir, progress_callback=progress_callback)
-                logging.getLogger(__name__).info(f"Step 1: fetch_data result={result}")
+                fetch_result = await tool.fetch_data(serial=serial, args=None, output_dir=output_dir, progress_callback=progress_callback)
+                logging.getLogger(__name__).info(f"Step 1: fetch_data result={fetch_result}")
                 self.logging_configured = False
                
             # Update GUI with fetch output
             self.root.after(0, self.hide_progress_area) 
-            logging.getLogger(__name__).info(f"Step 1: BLE fetch complete, success={result.get('success')}, files={result.get('files_fetched')}")
+            logging.getLogger(__name__).info(f"Step 1: BLE fetch complete, success={fetch_result.get('success')}, files={fetch_result.get('files_fetched')}")
             self.root.after(0, self.log_output, output.getvalue())
 
-            if not result.get("success", False):
-                self.root.after(0, self.log_output, f"\nError fetching data: {result.get('error', 'Unknown error')}\n")
+            if not fetch_result.get("success", False):
+                self.root.after(0, self.log_output, f"\nError fetching data: {fetch_result.get('error', 'Unknown error')}\n")
                 self.root.after(0, self.status_var.set, "Error occurred during data fetch")
                 self.fetching_active = False
                 return
@@ -1334,14 +1334,16 @@ class DataloggerGUI:
                     if not os.path.exists(sbem_folder):
                         os.makedirs(sbem_folder)
                         self._log_queue.put(('log', f"Created folder: {sbem_folder}"))
-                    
-                    sbem_files = []
-                    for root_dir, dirs, files in os.walk(output_dir):
-                        if 'sbem-files' in root_dir:
-                            continue
-                        for file in files:
-                            if file.endswith('.sbem'):
-                                sbem_files.append(os.path.join(root_dir, file))
+
+                    fetched_files = fetch_result.get("files_fetched", [])
+
+                    sbem_files = [f for f in fetched_files if f.lower().endswith(".sbem")]
+                    # for root_dir, dirs, files in os.walk(output_dir):
+                    #     if 'sbem-files' in root_dir:
+                    #         continue
+                    #     for file in files:
+                    #         if file.endswith('.sbem'):
+                    #             sbem_files.append(os.path.join(root_dir, file))
 
                     logging.getLogger(__name__).info(f"Step 2: Found {len(sbem_files)} SBEM files to convert")
                     if not sbem_files:
