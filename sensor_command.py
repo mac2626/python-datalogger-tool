@@ -100,7 +100,6 @@ class SensorCommand:
         self.response_queue = asyncio.Queue()
         self.disconnected_event = asyncio.Event()
         self.response_handlers: Dict[int, Callable] = {}
-        #self.simulating_missing_packet = False 
         
     async def __aenter__(self):
         """Async context manager entry - discover and connect to device."""
@@ -146,7 +145,7 @@ class SensorCommand:
         
         try:
             # Wait for device to be found or timeout after 10 seconds
-            await asyncio.wait_for(device_found.wait(), timeout=100)
+            await asyncio.wait_for(device_found.wait(), timeout=10)
             self.device_address = target_device.address
             self.device_name = target_device.name
         except asyncio.TimeoutError:
@@ -640,10 +639,6 @@ class SensorCommand:
             missing_packet_detected = False
             end_of_log_received = False
             timed_out = False
-
-            # test
-            #packet_counter = 0
-            #test_packet_loss_injected = False
             
             with open(filename, 'wb') as f_log:
                 while True:
@@ -665,15 +660,6 @@ class SensorCommand:
                                 offset = dv.get_uint_32(0)
                                 bytes_to_write = data_payload[4:]
                                 packet_size = len(bytes_to_write)
-
-                                #packet_counter += 1
-                                #self.logger.info(f"Packet #{packet_counter}, offset={offset}, size={packet_size}, expected={last_offset}")
-
-                                # ### TEST ###
-                                # if (self.simulating_missing_packet and offset == 556 and not test_packet_loss_injected):
-                                #     self.logger.warning(f"TEST: Simulating packet loss at offset {offset}")
-                                #     test_packet_loss_injected = True
-                                #     continue
 
                                 expected_offset = last_offset
 

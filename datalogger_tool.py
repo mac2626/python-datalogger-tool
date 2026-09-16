@@ -106,7 +106,6 @@ async def stop_logging(serial, args):
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
-#async def fetch_data(serial, args, output_dir=None, progress_callback=None, simulate_missing_packet=True):
 async def fetch_data(serial, args, output_dir=None, progress_callback=None):
     """Fetch data from a specific device."""
     fetched_files = []
@@ -114,7 +113,6 @@ async def fetch_data(serial, args, output_dir=None, progress_callback=None):
         async with SensorCommand(serial, set_time=False) as sensor:
             # Dictionary to store all discovered logs
             discovered_logs = {}
-            #sensor.simulating_missing_packet = simulate_missing_packet
             
             # Step 1: Get first batch of logs (max 4) from logbook
             logs = await sensor.get_log_list()

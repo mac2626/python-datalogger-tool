@@ -1313,7 +1313,6 @@ class DataloggerGUI:
                 for attempt in range(1, max_retries+1):
                     logging.getLogger(__name__).info(f"Fetch attempt {attempt} of {max_retries}")
                     result = await tool.fetch_data(serial=serial, args=None, output_dir=output_dir, progress_callback=progress_callback)
-                    #result = await tool.fetch_data(serial=serial, args=None, output_dir=output_dir, progress_callback=progress_callback, simulate_missing_packet=(attempt == 1))
                     if result.get("success"):
                         logging.getLogger(__name__).info(f"Fetch succeeded on attempt {attempt}")
                         break
