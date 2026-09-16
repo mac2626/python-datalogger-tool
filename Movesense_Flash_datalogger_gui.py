@@ -824,7 +824,7 @@ class DataloggerGUI:
                 error_msg = status.get("error", "")
                 exc_type = status.get("exception_type", "")
 
-                if exc_type == "BleakCharacteristicNotFoundError":
+                if exc_type == "RuntimeError":
                     messagebox.showerror(
                     "Characteristic UUID Error",
                     "The firmware on the sensor does not have GSP protocol.\n"
