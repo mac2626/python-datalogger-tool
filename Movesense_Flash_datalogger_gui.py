@@ -824,6 +824,7 @@ class DataloggerGUI:
                 error_msg = status.get("error", "")
                 exc_type = status.get("exception_type", "")
 
+                # Check if it's a characteristic UUID error
                 if exc_type == "RuntimeError":
                     messagebox.showerror(
                     "Characteristic UUID Error",
@@ -831,6 +832,7 @@ class DataloggerGUI:
                     "Please update the sensor to latest default firmware."
                 )
 
+                # Check if it's a Bluetooth error
                 elif (
                     status.get("exception_type") == "OSError"
                 ):
@@ -841,9 +843,9 @@ class DataloggerGUI:
 
                 else:
                     messagebox.showerror(
-                    "Connection Error",
-                    f"Failed to connect to device.\n\n{error_msg}"
-                )
+                        "Connection Error",
+                        f"Failed to connect to device.\n\n{error_msg}"
+                    )
 
                 self.root.after(0, self.log_output, f"Error during status fetch.\n")
                 self.root.after(0, self.log_output, f"Please ensure that Bluetooth is enabled and the sensor is powered on. To activate the sensor, touch the studs.\n")
