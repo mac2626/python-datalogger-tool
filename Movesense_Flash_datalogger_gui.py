@@ -847,7 +847,7 @@ class DataloggerGUI:
                         f"Failed to connect to device.\n\n{error_msg}"
                     )
 
-                self.root.after(0, self.log_output, f"Error during status fetch.\n")
+                self.root.after(0, self.log_output, f"Error during status fetch: {error_msg}.\n")
                 self.root.after(0, self.log_output, f"Please ensure that Bluetooth is enabled and the sensor is powered on. To activate the sensor, touch the studs.\n")
                 self.root.after(0, self.status_var.set, "Status fetch failed.")
                 self.device_connected = False
