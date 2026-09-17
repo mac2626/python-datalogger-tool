@@ -56,7 +56,7 @@ class AdvancedConfigDialog:
         self.result = None
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Advanced Configuration")
-        self.dialog.geometry("600x550")
+        self.dialog.geometry("600x600")
         self.dialog.transient(parent)
         self.dialog.grab_set()
 
