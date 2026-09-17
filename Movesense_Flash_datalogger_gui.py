@@ -1355,6 +1355,7 @@ class DataloggerGUI:
                             archieved_json = os.path.join(output_dir, "json_files", json_filename)
                             if os.path.exists(archieved_json):
                                 self._log_queue.put('log', f"Skipping {sbem_filename} - JSON already exists")
+                                continue
                             json_file = os.path.join(original_dir, json_filename)
 
                             if getattr(sys, 'frozen', False):
@@ -1414,9 +1415,9 @@ class DataloggerGUI:
                                 except Exception as e:
                                     self._log_queue.put(('log', f"Warning: Could not move SBEM file: {str(e)}"))
 
-                                # Move JSON to json-files folder only in Advanced UI mode
+                                # Move JSON to json_files folder only in Advanced UI mode
                                 if self.advanced_ui_var.get():
-                                    json_folder = os.path.join(output_dir, "json-files")
+                                    json_folder = os.path.join(output_dir, "json_files")
                                     os.makedirs(json_folder, exist_ok=True)
                                     new_json_path = os.path.join(json_folder, os.path.basename(json_file))
                                     try:
@@ -1436,8 +1437,8 @@ class DataloggerGUI:
                     self._log_queue.put(('status', "Converting JSON to CSV..."))
                     self.progress_frame.grid()  # Show progress bars for conversion steps
                     advanced_ui = self.advanced_ui_var.get()
-                    json_folder = os.path.join(output_dir, "json-files")
-                    csv_folder = os.path.join(output_dir, "csv-files") if advanced_ui else output_dir
+                    json_folder = os.path.join(output_dir, "json_files")
+                    csv_folder = os.path.join(output_dir, "csv_files") if advanced_ui else output_dir
                     if advanced_ui:
                         os.makedirs(csv_folder, exist_ok=True)
 
