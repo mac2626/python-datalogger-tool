@@ -180,6 +180,8 @@ async def fetch_data(serial, args, output_dir=None, progress_callback=None):
                 
                 output_file = None
                 full_serial = sensor.device_name
+                if full_serial.startswith("Movesense "):
+                    full_serial = full_serial.replace("Movesense ", "", 1)
                 if output_dir:
                     output_file = f"{output_dir}/Movesense_log_{log_id}_{full_serial}.sbem"
                 elif hasattr(args, 'output') and args.output:
