@@ -1422,6 +1422,7 @@ class DataloggerGUI:
                                     new_json_path = os.path.join(json_folder, os.path.basename(json_file))
                                     try:
                                         if os.path.exists(new_json_path):
+                                            os.remove(json_file)
                                             self._log_queue.put(('log', f"Removed duplicate JSON: {os.path.basename(json_file)}"))
                                         else:
                                             os.rename(json_file, new_json_path)
@@ -1468,13 +1469,19 @@ class DataloggerGUI:
                             csv_file = os.path.join(csv_folder, os.path.splitext(os.path.basename(json_file))[0] + '.csv')
                             try:
                                 await convert_json_to_csv(input_file=json_file, output_file=csv_file, progress_callback=self.update_csv_progress)
-                                #created_csv_files.append(csv_file)
+                                # Collect all CSVs generated from this JSON
+                                generated_csvs = []
                                 base_name = os.path.splitext(os.path.basename(json_file))[0]
                                 for file in os.listdir(csv_folder):
                                     if file.startswith(base_name) and file.endswith(".csv"):
-                                        full_path = os.path.join(csv_folder, file)
-                                        if full_path not in created_csv_files:
-                                            created_csv_files.append(full_path)
+                                        generated_csvs.append(os.path.join(csv_folder, file))
+                                created_csv_files.extend([f for f in generated_csvs if f not in created_csv_files])
+                                for csv_path in generated_csvs:
+                                    if advanced_ui:
+                                        archive_csv = os.path.join(csv_folder, os.path.basename(csv_path))
+                                        # Duplicate CSV already archived
+                                        if (os.path.exists(archive_csv) and os.path.abspath(csv_path) != os.path.abspath(archive_csv)):
+                                            os.remove(csv_path)
                                 logging.getLogger(__name__).info(f"Created CSV files: {created_csv_files}")
                                 logging.getLogger(__name__).info(f"Step 3: Created {csv_file}")
                                 self._log_queue.put(('log', f"\nCreated: {csv_file}"))
