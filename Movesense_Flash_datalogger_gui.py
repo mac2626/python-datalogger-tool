@@ -1358,11 +1358,6 @@ class DataloggerGUI:
                                 continue
                             json_file = os.path.join(original_dir, json_filename)
 
-                            if getattr(sys, 'frozen', False):
-                                application_path = sys._MEIPASS
-                            else:
-                                application_path = os.path.dirname(os.path.abspath(__file__))
-
                             self._log_queue.put(('log', f'Converting {sbem_file} -> {json_file}'))
 
                             try:
